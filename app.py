@@ -131,9 +131,6 @@ def tela_login(cliente) -> None:
 
 def conteudo_login(cliente) -> None:
     st.title(":violet[:material/task_alt:] TaskFlow", text_alignment="center")
-    st.markdown(
-        ":gray[Pessoal, estudos e trabalho em um só lugar.]", text_alignment="center"
-    )
 
     aba_entrar, aba_cadastrar = st.tabs(["Entrar", "Criar conta"])
 
