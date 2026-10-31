@@ -122,20 +122,23 @@ def descrever_prazo(valor) -> str:
 # Tela de login e cadastro
 # ---------------------------------------------------------------------------
 def tela_login(cliente) -> None:
-    _, centro, _ = st.columns([1, 2, 1])
+    _, centro, _ = st.columns([1, 1.3, 1])
     with centro:
-        conteudo_login(cliente)
+        st.space("large")
+        with st.container(border=True):
+            conteudo_login(cliente)
 
 
 def conteudo_login(cliente) -> None:
-    st.title(":material/task_alt: TaskFlow")
-    st.markdown("**Sua rotina organizada, do jeito que você precisa.**")
-    st.caption("Tarefas pessoais, estudos e trabalho em um só lugar, com prazos e progresso sempre à vista.")
+    st.title(":violet[:material/task_alt:] TaskFlow", text_alignment="center")
+    st.markdown(
+        ":gray[Pessoal, estudos e trabalho em um só lugar.]", text_alignment="center"
+    )
 
     aba_entrar, aba_cadastrar = st.tabs(["Entrar", "Criar conta"])
 
     with aba_entrar:
-        with st.form("form_login"):
+        with st.form("form_login", border=False):
             email = st.text_input("E-mail")
             senha = st.text_input("Senha", type="password")
             enviar = st.form_submit_button("Entrar", type="primary", width="stretch")
@@ -151,7 +154,7 @@ def conteudo_login(cliente) -> None:
                     st.error(traduzir_erro_login(erro))
 
     with aba_cadastrar:
-        with st.form("form_cadastro"):
+        with st.form("form_cadastro", border=False):
             email = st.text_input("E-mail", key="cadastro_email")
             senha = st.text_input("Senha (mínimo 6 caracteres)", type="password", key="cadastro_senha")
             confirmar = st.text_input("Confirme a senha", type="password", key="cadastro_confirmar")
