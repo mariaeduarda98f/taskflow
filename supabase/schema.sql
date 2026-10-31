@@ -61,3 +61,8 @@ create policy "Usuario exclui suas tarefas"
     on public.tarefas for delete
     to authenticated
     using (auth.uid() = user_id);
+
+-- 4) Permissões da API: só usuários logados acessam a tabela (o RLS acima filtra as linhas).
+--    Alguns projetos novos do Supabase não liberam tabelas novas automaticamente.
+revoke all on public.tarefas from anon;
+grant select, insert, update, delete on public.tarefas to authenticated;

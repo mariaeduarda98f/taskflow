@@ -32,7 +32,8 @@ taskflow/
 
 1. Crie uma conta e um projeto em <https://supabase.com>.
 2. No menu do projeto, abra **SQL Editor → New query**, cole todo o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e clique em **Run**.
-   Isso cria a tabela `tarefas` e ativa o **RLS** (cada usuário só acessa as próprias linhas).
+   Isso cria a tabela `tarefas`, ativa o **RLS** (cada usuário só acessa as próprias linhas) e libera a tabela apenas para usuários logados.
+   O script pode ser executado mais de uma vez sem problema.
 3. Abra **Project Settings → API** e copie:
    - **Project URL** → será o `SUPABASE_URL`
    - Chave **anon public** → será o `SUPABASE_KEY`
