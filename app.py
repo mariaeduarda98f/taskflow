@@ -3,17 +3,27 @@
 Para rodar: streamlit run app.py
 """
 
+import logging
 import os
 from datetime import date
 
+import altair as alt
+import pandas as pd
 import streamlit as st
 
 import database as db
 
-st.set_page_config(page_title="TaskFlow", page_icon=":material/task_alt:", layout="centered")
+st.set_page_config(page_title="TaskFlow", page_icon=":material/task_alt:", layout="wide")
 
 CORES_PRIORIDADE = {"Alta": "red", "Média": "orange", "Baixa": "green"}
 CORES_STATUS = {"Pendente": "gray", "Em andamento": "blue", "Concluída": "green"}
+CORES_GRAFICO_STATUS = ["#94A3B8", "#7C5CFC", "#22C55E"]
+logger = logging.getLogger("taskflow")
+PAGINAS = {
+    "Painel": ":material/dashboard:",
+    "Tarefas": ":material/checklist:",
+    "Nova tarefa": ":material/add_circle:",
+}
 DIAS_SEMANA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 
 
@@ -56,18 +66,36 @@ def avisar_e_recarregar(mensagem: str) -> None:
     st.rerun()
 
 
+MENSAGENS_ERRO_AUTH = {
+    "invalid_credentials": "E-mail ou senha incorretos.",
+    "email_not_confirmed": "Confirme seu e-mail antes de entrar (veja sua caixa de entrada e o spam).",
+    "user_already_exists": "Este e-mail já está cadastrado. Use a aba Entrar.",
+    "email_exists": "Este e-mail já está cadastrado. Use a aba Entrar.",
+    "weak_password": "Senha fraca. Use uma senha maior, com letras e números.",
+    "email_address_invalid": "Este e-mail não é aceito. Use um endereço de e-mail real.",
+    "validation_failed": "E-mail em formato inválido.",
+    "email_address_not_authorized": (
+        "O Supabase ainda não pode enviar e-mails para este endereço. "
+        "Sem um servidor de e-mail próprio (SMTP), ele só envia para os membros do projeto."
+    ),
+    "over_email_send_rate_limit": (
+        "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente novamente."
+    ),
+    "over_request_rate_limit": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    "signup_disabled": "O cadastro de novas contas está desativado no Supabase.",
+}
+
+
 def traduzir_erro_login(erro: Exception) -> str:
+    codigo = getattr(erro, "code", None)
+    logger.warning("Erro de autenticação: %s (%s)", codigo, type(erro).__name__)
+    if codigo in MENSAGENS_ERRO_AUTH:
+        return MENSAGENS_ERRO_AUTH[codigo]
     texto = str(erro).lower()
-    if "invalid login credentials" in texto:
-        return "E-mail ou senha incorretos."
-    if "email not confirmed" in texto:
-        return "Confirme seu e-mail antes de entrar (veja sua caixa de entrada)."
-    if "already registered" in texto or "already exists" in texto:
-        return "Este e-mail já está cadastrado."
-    if "password" in texto:
-        return "Senha inválida. Use pelo menos 6 caracteres."
     if "rate limit" in texto:
-        return "Muitas tentativas. Aguarde alguns minutos e tente novamente."
+        return MENSAGENS_ERRO_AUTH["over_request_rate_limit"]
+    if "not authorized" in texto:
+        return MENSAGENS_ERRO_AUTH["email_address_not_authorized"]
     return "Não foi possível concluir. Verifique os dados e tente novamente."
 
 
@@ -94,13 +122,20 @@ def descrever_prazo(valor) -> str:
 # Tela de login e cadastro
 # ---------------------------------------------------------------------------
 def tela_login(cliente) -> None:
-    st.title("TaskFlow")
-    st.caption("Organize suas tarefas pessoais, de estudos e de trabalho em um só lugar.")
+    _, centro, _ = st.columns([1, 1.3, 1])
+    with centro:
+        st.space("large")
+        with st.container(border=True):
+            conteudo_login(cliente)
+
+
+def conteudo_login(cliente) -> None:
+    st.title(":violet[:material/task_alt:] TaskFlow", text_alignment="center")
 
     aba_entrar, aba_cadastrar = st.tabs(["Entrar", "Criar conta"])
 
     with aba_entrar:
-        with st.form("form_login"):
+        with st.form("form_login", border=False):
             email = st.text_input("E-mail")
             senha = st.text_input("Senha", type="password")
             enviar = st.form_submit_button("Entrar", type="primary", width="stretch")
@@ -116,7 +151,7 @@ def tela_login(cliente) -> None:
                     st.error(traduzir_erro_login(erro))
 
     with aba_cadastrar:
-        with st.form("form_cadastro"):
+        with st.form("form_cadastro", border=False):
             email = st.text_input("E-mail", key="cadastro_email")
             senha = st.text_input("Senha (mínimo 6 caracteres)", type="password", key="cadastro_senha")
             confirmar = st.text_input("Confirme a senha", type="password", key="cadastro_confirmar")
@@ -265,6 +300,9 @@ def pagina_painel(tarefas: list[dict]) -> None:
     if ind["em_andamento"]:
         st.caption(f"{ind['em_andamento']} tarefa(s) em andamento.")
 
+    if tarefas:
+        graficos(tarefas)
+
     st.subheader("Minha Semana")
     semana = db.tarefas_da_semana(tarefas)
     if not semana:
@@ -281,6 +319,47 @@ def pagina_painel(tarefas: list[dict]) -> None:
             linha.badge(tarefa["prioridade"], color=CORES_PRIORIDADE[tarefa["prioridade"]])
 
 
+def graficos(tarefas: list[dict]) -> None:
+    por_status = pd.DataFrame(
+        db.contar_por(tarefas, "status", db.STATUS).items(), columns=["Status", "Tarefas"]
+    )
+    por_categoria = pd.DataFrame(
+        db.contar_por(tarefas, "categoria", db.CATEGORIAS).items(), columns=["Categoria", "Tarefas"]
+    )
+
+    col1, col2 = st.columns(2)
+    with col1.container(border=True):
+        st.markdown("**Tarefas por status**")
+        rosca = (
+            alt.Chart(por_status)
+            .mark_arc(innerRadius=60)
+            .encode(
+                theta="Tarefas:Q",
+                color=alt.Color(
+                    "Status:N",
+                    scale=alt.Scale(domain=db.STATUS, range=CORES_GRAFICO_STATUS),
+                    legend=alt.Legend(orient="bottom", title=None),
+                ),
+                tooltip=["Status", "Tarefas"],
+            )
+            .properties(height=260)
+        )
+        st.altair_chart(rosca, width="stretch")
+    with col2.container(border=True):
+        st.markdown("**Tarefas por categoria**")
+        barras = (
+            alt.Chart(por_categoria)
+            .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6, color="#7C5CFC")
+            .encode(
+                x=alt.X("Categoria:N", sort=db.CATEGORIAS, title=None, axis=alt.Axis(labelAngle=0)),
+                y=alt.Y("Tarefas:Q", title=None, axis=alt.Axis(tickMinStep=1)),
+                tooltip=["Categoria", "Tarefas"],
+            )
+            .properties(height=260)
+        )
+        st.altair_chart(barras, width="stretch")
+
+
 def pagina_tarefas(cliente, tarefas: list[dict]) -> None:
     with st.expander("Filtros", icon=":material/filter_list:", expanded=False):
         categorias = st.pills("Categoria", db.CATEGORIAS, selection_mode="multi", key="f_cat")
@@ -291,7 +370,7 @@ def pagina_tarefas(cliente, tarefas: list[dict]) -> None:
     st.caption(f"{len(filtradas)} de {len(tarefas)} tarefa(s)")
 
     if not tarefas:
-        st.info("Você ainda não tem tarefas. Use a aba **Nova tarefa** para começar.")
+        st.info("Você ainda não tem tarefas. Use **Nova tarefa** no menu para começar.")
     elif not filtradas:
         st.info("Nenhuma tarefa com esses filtros.")
     for tarefa in filtradas:
@@ -303,20 +382,22 @@ def pagina_nova_tarefa(cliente) -> None:
 
 
 def tela_principal(cliente) -> None:
-    topo = st.container(horizontal=True, vertical_alignment="center")
-    topo.title("TaskFlow")
-    if topo.button("Sair", icon=":material/logout:"):
-        try:
-            db.sair(cliente)
-        finally:
-            st.session_state.clear()
-            st.rerun()
-    st.caption(f"Conectada(o) como {st.session_state.usuario}")
+    with st.sidebar:
+        st.title(":material/task_alt: TaskFlow")
+        pagina = st.radio(
+            "Navegação", list(PAGINAS), key="pagina", label_visibility="collapsed",
+            format_func=lambda nome: f"{PAGINAS[nome]} {nome}",
+        )
+        st.divider()
+        st.caption(f"Conectada(o) como {st.session_state.usuario}")
+        if st.button("Sair", icon=":material/logout:", width="stretch"):
+            try:
+                db.sair(cliente)
+            finally:
+                st.session_state.clear()
+                st.rerun()
 
-    pagina = st.segmented_control(
-        "Navegação", ["Painel", "Tarefas", "Nova tarefa"],
-        default="Painel", key="pagina", label_visibility="collapsed",
-    ) or "Painel"
+    st.header(pagina)
 
     mostrar_aviso()
 
@@ -326,7 +407,10 @@ def tela_principal(cliente) -> None:
 
     try:
         tarefas = db.listar_tarefas(cliente)
-    except Exception:
+    except Exception as erro:
+        logger.warning(
+            "Erro ao carregar tarefas: %s (%s)", getattr(erro, "code", None), type(erro).__name__
+        )
         st.error("Não foi possível carregar suas tarefas. Faça login novamente.")
         return
 
