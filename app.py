@@ -346,7 +346,10 @@ def tela_principal(cliente) -> None:
 
     try:
         tarefas = db.listar_tarefas(cliente)
-    except Exception:
+    except Exception as erro:
+        logger.warning(
+            "Erro ao carregar tarefas: %s (%s)", getattr(erro, "code", None), type(erro).__name__
+        )
         st.error("Não foi possível carregar suas tarefas. Faça login novamente.")
         return
 
