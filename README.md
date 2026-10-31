@@ -2,6 +2,10 @@
 
 Organizador de tarefas pessoal, acadêmico e profissional, feito com **Python + Streamlit** e dados salvos na nuvem com **Supabase (PostgreSQL)**.
 
+**App publicado:** <https://taskflow-happstm94ealfcevopxbquw.streamlit.app>
+
+**Resumo do projeto (PDF):** [docs/TaskFlow_Resumo_do_Projeto.pdf](docs/TaskFlow_Resumo_do_Projeto.pdf)
+
 ## Funcionalidades
 
 - Cadastro e login com e-mail e senha
@@ -22,6 +26,7 @@ taskflow/
 ├── database.py            # Conexão com o Supabase, login e operações das tarefas
 ├── supabase/schema.sql    # Cria a tabela e as regras de segurança (RLS)
 ├── tests/                 # Testes automáticos
+├── docs/                  # Resumo do projeto (PDF)
 ├── .streamlit/config.toml # Cores do tema
 ├── requirements.txt       # Bibliotecas Python
 ├── .env.example           # Modelo das variáveis de ambiente (sem valores)
