@@ -194,6 +194,11 @@ def calcular_indicadores(tarefas: list[dict]) -> dict:
     }
 
 
+def contar_por(tarefas: list[dict], campo: str, valores: list[str]) -> dict[str, int]:
+    """Conta quantas tarefas existem para cada valor de um campo (usado nos gráficos)."""
+    return {valor: sum(1 for t in tarefas if t[campo] == valor) for valor in valores}
+
+
 def tarefas_da_semana(tarefas: list[dict], hoje: date | None = None) -> list[dict]:
     """Tarefas não concluídas que vencem nos próximos 7 dias (incluindo atrasadas)."""
     hoje = hoje or date.today()

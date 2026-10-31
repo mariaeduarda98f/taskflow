@@ -198,3 +198,17 @@ def test_minha_semana():
     ]
     semana = db.tarefas_da_semana(tarefas, hoje)
     assert [t["data_entrega"] for t in semana] == ["2030-01-06", "2030-01-10", "2030-01-13"]
+
+
+def test_contar_por():
+    tarefas = [
+        {"status": "Pendente", "categoria": "Estudos"},
+        {"status": "Concluída", "categoria": "Estudos"},
+        {"status": "Pendente", "categoria": "Trabalho"},
+    ]
+    assert db.contar_por(tarefas, "status", db.STATUS) == {
+        "Pendente": 2, "Em andamento": 0, "Concluída": 1
+    }
+    assert db.contar_por(tarefas, "categoria", db.CATEGORIAS) == {
+        "Pessoal": 0, "Estudos": 2, "Trabalho": 1
+    }

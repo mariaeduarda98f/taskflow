@@ -7,15 +7,23 @@ import logging
 import os
 from datetime import date
 
+import altair as alt
+import pandas as pd
 import streamlit as st
 
 import database as db
 
-st.set_page_config(page_title="TaskFlow", page_icon=":material/task_alt:", layout="centered")
+st.set_page_config(page_title="TaskFlow", page_icon=":material/task_alt:", layout="wide")
 
 CORES_PRIORIDADE = {"Alta": "red", "Média": "orange", "Baixa": "green"}
 CORES_STATUS = {"Pendente": "gray", "Em andamento": "blue", "Concluída": "green"}
+CORES_GRAFICO_STATUS = ["#94A3B8", "#7C5CFC", "#22C55E"]
 logger = logging.getLogger("taskflow")
+PAGINAS = {
+    "Painel": ":material/dashboard:",
+    "Tarefas": ":material/checklist:",
+    "Nova tarefa": ":material/add_circle:",
+}
 DIAS_SEMANA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 
 
@@ -114,7 +122,13 @@ def descrever_prazo(valor) -> str:
 # Tela de login e cadastro
 # ---------------------------------------------------------------------------
 def tela_login(cliente) -> None:
-    st.title("TaskFlow")
+    _, centro, _ = st.columns([1, 2, 1])
+    with centro:
+        conteudo_login(cliente)
+
+
+def conteudo_login(cliente) -> None:
+    st.title(":material/task_alt: TaskFlow")
     st.caption("Organize suas tarefas pessoais, de estudos e de trabalho em um só lugar.")
 
     aba_entrar, aba_cadastrar = st.tabs(["Entrar", "Criar conta"])
@@ -285,6 +299,9 @@ def pagina_painel(tarefas: list[dict]) -> None:
     if ind["em_andamento"]:
         st.caption(f"{ind['em_andamento']} tarefa(s) em andamento.")
 
+    if tarefas:
+        graficos(tarefas)
+
     st.subheader("Minha Semana")
     semana = db.tarefas_da_semana(tarefas)
     if not semana:
@@ -301,6 +318,47 @@ def pagina_painel(tarefas: list[dict]) -> None:
             linha.badge(tarefa["prioridade"], color=CORES_PRIORIDADE[tarefa["prioridade"]])
 
 
+def graficos(tarefas: list[dict]) -> None:
+    por_status = pd.DataFrame(
+        db.contar_por(tarefas, "status", db.STATUS).items(), columns=["Status", "Tarefas"]
+    )
+    por_categoria = pd.DataFrame(
+        db.contar_por(tarefas, "categoria", db.CATEGORIAS).items(), columns=["Categoria", "Tarefas"]
+    )
+
+    col1, col2 = st.columns(2)
+    with col1.container(border=True):
+        st.markdown("**Tarefas por status**")
+        rosca = (
+            alt.Chart(por_status)
+            .mark_arc(innerRadius=60)
+            .encode(
+                theta="Tarefas:Q",
+                color=alt.Color(
+                    "Status:N",
+                    scale=alt.Scale(domain=db.STATUS, range=CORES_GRAFICO_STATUS),
+                    legend=alt.Legend(orient="bottom", title=None),
+                ),
+                tooltip=["Status", "Tarefas"],
+            )
+            .properties(height=260)
+        )
+        st.altair_chart(rosca, width="stretch")
+    with col2.container(border=True):
+        st.markdown("**Tarefas por categoria**")
+        barras = (
+            alt.Chart(por_categoria)
+            .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6, color="#7C5CFC")
+            .encode(
+                x=alt.X("Categoria:N", sort=db.CATEGORIAS, title=None, axis=alt.Axis(labelAngle=0)),
+                y=alt.Y("Tarefas:Q", title=None, axis=alt.Axis(tickMinStep=1)),
+                tooltip=["Categoria", "Tarefas"],
+            )
+            .properties(height=260)
+        )
+        st.altair_chart(barras, width="stretch")
+
+
 def pagina_tarefas(cliente, tarefas: list[dict]) -> None:
     with st.expander("Filtros", icon=":material/filter_list:", expanded=False):
         categorias = st.pills("Categoria", db.CATEGORIAS, selection_mode="multi", key="f_cat")
@@ -311,7 +369,7 @@ def pagina_tarefas(cliente, tarefas: list[dict]) -> None:
     st.caption(f"{len(filtradas)} de {len(tarefas)} tarefa(s)")
 
     if not tarefas:
-        st.info("Você ainda não tem tarefas. Use a aba **Nova tarefa** para começar.")
+        st.info("Você ainda não tem tarefas. Use **Nova tarefa** no menu para começar.")
     elif not filtradas:
         st.info("Nenhuma tarefa com esses filtros.")
     for tarefa in filtradas:
@@ -323,20 +381,22 @@ def pagina_nova_tarefa(cliente) -> None:
 
 
 def tela_principal(cliente) -> None:
-    topo = st.container(horizontal=True, vertical_alignment="center")
-    topo.title("TaskFlow")
-    if topo.button("Sair", icon=":material/logout:"):
-        try:
-            db.sair(cliente)
-        finally:
-            st.session_state.clear()
-            st.rerun()
-    st.caption(f"Conectada(o) como {st.session_state.usuario}")
+    with st.sidebar:
+        st.title(":material/task_alt: TaskFlow")
+        pagina = st.radio(
+            "Navegação", list(PAGINAS), key="pagina", label_visibility="collapsed",
+            format_func=lambda nome: f"{PAGINAS[nome]} {nome}",
+        )
+        st.divider()
+        st.caption(f"Conectada(o) como {st.session_state.usuario}")
+        if st.button("Sair", icon=":material/logout:", width="stretch"):
+            try:
+                db.sair(cliente)
+            finally:
+                st.session_state.clear()
+                st.rerun()
 
-    pagina = st.segmented_control(
-        "Navegação", ["Painel", "Tarefas", "Nova tarefa"],
-        default="Painel", key="pagina", label_visibility="collapsed",
-    ) or "Painel"
+    st.header(pagina)
 
     mostrar_aviso()
 

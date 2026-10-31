@@ -115,3 +115,12 @@ def test_mensagem_de_erro_no_cadastro(monkeypatch, codigo, trecho):
     at.text_input(key="cadastro_confirmar").input("senha123")
     next(b for b in at.button if b.label == "Criar conta").click().run()
     assert trecho in at.error[0].value
+
+
+def test_painel_mostra_graficos(app):
+    app = ir_para(app, "Nova tarefa")
+    app.text_input[0].input("Estudar Python")
+    botao(app, "Adicionar tarefa").click().run()
+    app = ir_para(app, "Painel")
+    assert not app.exception
+    assert len(app.get("vega_lite_chart")) == 2
