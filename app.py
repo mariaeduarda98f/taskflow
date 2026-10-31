@@ -129,7 +129,8 @@ def tela_login(cliente) -> None:
 
 def conteudo_login(cliente) -> None:
     st.title(":material/task_alt: TaskFlow")
-    st.caption("Organize suas tarefas pessoais, de estudos e de trabalho em um só lugar.")
+    st.markdown("**Sua rotina organizada, do jeito que você precisa.**")
+    st.caption("Tarefas pessoais, estudos e trabalho em um só lugar, com prazos e progresso sempre à vista.")
 
     aba_entrar, aba_cadastrar = st.tabs(["Entrar", "Criar conta"])
 
