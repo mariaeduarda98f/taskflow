@@ -88,3 +88,30 @@ def test_titulo_obrigatorio(app):
     next(b for b in app.button if b.label == "Adicionar tarefa").click().run()
     assert app.error[0].value == "O título é obrigatório."
     assert app.session_state["cliente"].linhas == []
+
+
+class ErroAuth(Exception):
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code
+
+
+@pytest.mark.parametrize(
+    "codigo, trecho",
+    [("email_address_invalid", "não é aceito"),
+     ("email_address_not_authorized", "SMTP"),
+     ("over_email_send_rate_limit", "Limite de envio"),
+     ("user_already_exists", "já está cadastrado")],
+)
+def test_mensagem_de_erro_no_cadastro(monkeypatch, codigo, trecho):
+    monkeypatch.setenv("SUPABASE_URL", "https://exemplo.supabase.co")
+    monkeypatch.setenv("SUPABASE_KEY", "chave-de-teste")
+    monkeypatch.setattr("database.cadastrar_usuario", lambda *a: (_ for _ in ()).throw(ErroAuth(codigo)))
+    at = AppTest.from_file(APP, default_timeout=30)
+    at.session_state["cliente"] = ClienteFalso()
+    at.run()
+    at.text_input(key="cadastro_email").input("pessoa@gmail.com")
+    at.text_input(key="cadastro_senha").input("senha123")
+    at.text_input(key="cadastro_confirmar").input("senha123")
+    next(b for b in at.button if b.label == "Criar conta").click().run()
+    assert trecho in at.error[0].value

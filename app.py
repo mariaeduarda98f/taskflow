@@ -3,6 +3,7 @@
 Para rodar: streamlit run app.py
 """
 
+import logging
 import os
 from datetime import date
 
@@ -14,6 +15,7 @@ st.set_page_config(page_title="TaskFlow", page_icon=":material/task_alt:", layou
 
 CORES_PRIORIDADE = {"Alta": "red", "Média": "orange", "Baixa": "green"}
 CORES_STATUS = {"Pendente": "gray", "Em andamento": "blue", "Concluída": "green"}
+logger = logging.getLogger("taskflow")
 DIAS_SEMANA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 
 
@@ -56,18 +58,36 @@ def avisar_e_recarregar(mensagem: str) -> None:
     st.rerun()
 
 
+MENSAGENS_ERRO_AUTH = {
+    "invalid_credentials": "E-mail ou senha incorretos.",
+    "email_not_confirmed": "Confirme seu e-mail antes de entrar (veja sua caixa de entrada e o spam).",
+    "user_already_exists": "Este e-mail já está cadastrado. Use a aba Entrar.",
+    "email_exists": "Este e-mail já está cadastrado. Use a aba Entrar.",
+    "weak_password": "Senha fraca. Use uma senha maior, com letras e números.",
+    "email_address_invalid": "Este e-mail não é aceito. Use um endereço de e-mail real.",
+    "validation_failed": "E-mail em formato inválido.",
+    "email_address_not_authorized": (
+        "O Supabase ainda não pode enviar e-mails para este endereço. "
+        "Sem um servidor de e-mail próprio (SMTP), ele só envia para os membros do projeto."
+    ),
+    "over_email_send_rate_limit": (
+        "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente novamente."
+    ),
+    "over_request_rate_limit": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    "signup_disabled": "O cadastro de novas contas está desativado no Supabase.",
+}
+
+
 def traduzir_erro_login(erro: Exception) -> str:
+    codigo = getattr(erro, "code", None)
+    logger.warning("Erro de autenticação: %s (%s)", codigo, type(erro).__name__)
+    if codigo in MENSAGENS_ERRO_AUTH:
+        return MENSAGENS_ERRO_AUTH[codigo]
     texto = str(erro).lower()
-    if "invalid login credentials" in texto:
-        return "E-mail ou senha incorretos."
-    if "email not confirmed" in texto:
-        return "Confirme seu e-mail antes de entrar (veja sua caixa de entrada)."
-    if "already registered" in texto or "already exists" in texto:
-        return "Este e-mail já está cadastrado."
-    if "password" in texto:
-        return "Senha inválida. Use pelo menos 6 caracteres."
     if "rate limit" in texto:
-        return "Muitas tentativas. Aguarde alguns minutos e tente novamente."
+        return MENSAGENS_ERRO_AUTH["over_request_rate_limit"]
+    if "not authorized" in texto:
+        return MENSAGENS_ERRO_AUTH["email_address_not_authorized"]
     return "Não foi possível concluir. Verifique os dados e tente novamente."
 
 
